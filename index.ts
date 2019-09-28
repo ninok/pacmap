@@ -10,6 +10,7 @@ import { SphereBufferGeometry, Mesh, MeshStandardMaterial, Vector3 } from "three
 import { MapAnchor } from "@here/harp-mapview";
 import { OmvProtobufDataAdapter } from "@here/harp-omv-datasource/lib/OmvData";
 import { RoadExtractor } from "./road_extractor";
+import { RoadGraph, Node } from "./road_graph";
 
 const canvas = document.getElementById("map") as HTMLCanvasElement
 
@@ -44,43 +45,39 @@ console.log("Pacman @", tileKey);
 const geoBox = webMercatorTilingScheme.getGeoBox(tileKey);
 
 const roads = new Array<Array<Vector3>>();
-let i = { road: 0, vertex: 0 };
+
+let node: Node | undefined;
 
 document.onkeydown = (ev: KeyboardEvent) => {
-    if (roads.length === 0) {
+    if (roads.length === 0 || node === undefined) {
         // roads are not loaded yet
         return;
     }
-    // Take the next vertex in the buffer order
+
     switch (ev.key) {
         case "ArrowUp":
-            i.vertex++;
+            if (node.top !== undefined) {
+                node = node.top;
+            }
             break;
         case "ArrowDown":
-            i.vertex--;
+            if (node.bottom !== undefined) {
+                node = node.bottom;
+            }
+            break;
+        case "ArrowLeft":
+            if (node.left !== undefined) {
+                node = node.left;
+            }
+            break;
+        case "ArrowRight":
+            if (node.right !== undefined) {
+                node = node.right;
+            }
             break;
     }
 
-    // Manage wrap arounds
-    if (i.vertex < 0) {
-        i.road--;
-        if (i.road < 0) {
-            i.road = 0;
-            i.vertex = 0;
-        } else {
-            i.vertex = roads[i.road].length - 1;
-        }
-    } else if (i.vertex >= roads[i.road].length) {
-        i.road++
-        if (i.road >= roads.length) {
-            i.road = roads.length - 1;
-            i.vertex = roads[i.road].length - 1;
-        } else {
-            i.vertex = 0;
-        }
-    }
-
-    pacman.geoPosition = mapView.projection.unprojectPoint(roads[i.road][i.vertex]);
+    pacman.geoPosition = mapView.projection.unprojectPoint(node.position);
 
     mapView.update();
 }
@@ -95,7 +92,11 @@ mapView.addDataSource(vectorDataSource).then(() => {
             const processor = new RoadExtractor(roads, mapView, tileKey, geoBox);
             const adaptor = new OmvProtobufDataAdapter(processor, processor.dataFilter);
             adaptor.process(payload as ArrayBuffer, tileKey);
-            pacman.geoPosition = mapView.projection.unprojectPoint(roads[i.road][i.vertex]);
+
+            const roadGraph = new RoadGraph(processor.roads);
+            node = roadGraph.getNode(roads[0][0]);
+
+            pacman.geoPosition = mapView.projection.unprojectPoint(node.position);
             mapView.lookAt(pacman.geoPosition, 500, 0, 0);
             mapView.update();
         });
