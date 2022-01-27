@@ -16,7 +16,7 @@
     "@here/harp-mapview": "^0.10.0",
     "@here/harp-mapview-decoder": "^0.10.0",
     "@here/harp-omv-datasource": "^0.10.0",
-    "three": "^0.108.0"
+    "three": "^0.137.0"
   },
   "devDependencies": {
     "@types/tween.js": "^17.2.0",
